@@ -43,17 +43,39 @@ impl PackageDeserializer {
     ///
     /// Deserialize an npm package from it's bun lockfile representation
     ///
-    /// This is found in the source as a tuple of arity 4
+    /// This is found in the source as a tuple of arity 4:
+    /// `[identifier, registry, metadata, hash]`
+    ///
+    /// The registry field is empty for the default registry (registry.npmjs.org),
+    /// or contains a custom registry URL (e.g., "https://npm.pkg.github.com/")
     pub fn deserialize_npm_package(mut self) -> Result<Package> {
+        // The bun.lock format for npm packages is:
+        // [identifier, registry, metadata, hash]
+        // - identifier: "name@version"
+        // - registry: "" for default, or custom registry URL
+        // - metadata: object with dependencies, bin, etc.
+        // - hash: integrity hash (sha512-...)
+
         let npm_identifier_raw = swap_remove_value(&mut self.values, 0);
+        // After swap_remove(0): [hash, registry, meta]
+
         let hash = swap_remove_value(&mut self.values, 0);
+        // After swap_remove(0): [meta, registry]
+
+        // Get the registry URL from what's now at index 1
+        // (originally at index 1, but the metadata swapped in at index 0)
+        let registry = self
+            .values
+            .get(1)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty());
 
         debug_assert!(
             hash.contains("sha512-"),
             "Expected hash to be in sri format and contain sha512"
         );
 
-        let fetcher = Fetcher::new_npm_package(&npm_identifier_raw, hash)?;
+        let fetcher = Fetcher::new_npm_package(&npm_identifier_raw, hash, registry)?;
 
         Ok(Package::new(npm_identifier_raw, fetcher))
     }

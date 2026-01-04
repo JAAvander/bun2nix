@@ -65,13 +65,24 @@ pub enum Fetcher {
     },
 }
 
+/// The default NPM registry URL
+pub const DEFAULT_REGISTRY: &str = "https://registry.npmjs.org/";
+
 impl Fetcher {
     /// # From NPM Package Name
     ///
     /// Initialize a fetcher from an npm identifier and
-    /// it's hash
-    pub fn new_npm_package(ident: &str, hash: String) -> Result<Self> {
-        let url = Self::to_npm_url(ident)?;
+    /// it's hash, optionally using a custom registry path
+    ///
+    /// ## Arguments
+    /// * `ident` - The package identifier (e.g., "@types/node@1.0.0")
+    /// * `hash` - The integrity hash of the package
+    /// * `registry_path` - Optional registry path from bun.lock. Can be:
+    ///   - None or empty: uses the default npmjs.org registry
+    ///   - Full tarball URL (ends with .tgz): used directly
+    ///   - Base registry URL: package path is appended
+    pub fn new_npm_package(ident: &str, hash: String, registry_path: Option<&str>) -> Result<Self> {
+        let url = Self::to_npm_url(ident, registry_path)?;
 
         Ok(Self::FetchUrl { url, hash })
     }
@@ -84,22 +95,62 @@ impl Fetcher {
     ///```rust
     /// use bun2nix::package::Fetcher;
     ///
+    /// // Default registry
     /// let npm_identifier = "@alloc/quick-lru@5.2.0";
     ///
     /// assert_eq!(
-    ///     Fetcher::to_npm_url(npm_identifier).unwrap(),
+    ///     Fetcher::to_npm_url(npm_identifier, None).unwrap(),
     ///     "https://registry.npmjs.org/@alloc/quick-lru/-/quick-lru-5.2.0.tgz"
     /// );
+    ///
+    /// // Custom registry (base URL)
+    /// assert_eq!(
+    ///     Fetcher::to_npm_url(npm_identifier, Some("https://npm.pkg.github.com/")).unwrap(),
+    ///     "https://npm.pkg.github.com/@alloc/quick-lru/-/quick-lru-5.2.0.tgz"
+    /// );
+    ///
+    /// // Unscoped package with custom registry
+    /// assert_eq!(
+    ///     Fetcher::to_npm_url("lodash@4.17.21", Some("https://npm.example.com")).unwrap(),
+    ///     "https://npm.example.com/lodash/-/lodash-4.17.21.tgz"
+    /// );
+    ///
+    /// // Full tarball URL (used directly)
+    /// assert_eq!(
+    ///     Fetcher::to_npm_url("lodash@4.17.21", Some("https://npm.pkg.github.com/lodash/-/lodash-4.17.21.tgz")).unwrap(),
+    ///     "https://npm.pkg.github.com/lodash/-/lodash-4.17.21.tgz"
+    /// );
     /// ```
-    pub fn to_npm_url(ident: &str) -> Result<String> {
+    pub fn to_npm_url(ident: &str, registry_path: Option<&str>) -> Result<String> {
+        // If registry_path is a full tarball URL, use it directly
+        if let Some(path) = registry_path {
+            if !path.is_empty() && path.ends_with(".tgz") {
+                return Ok(path.to_string());
+            }
+        }
+
+        // Determine the base registry URL
+        let base_url = match registry_path {
+            Some(url) if !url.is_empty() => {
+                // Ensure the registry URL ends with a slash
+                if url.ends_with('/') {
+                    url.to_string()
+                } else {
+                    format!("{}/", url)
+                }
+            }
+            _ => DEFAULT_REGISTRY.to_string(),
+        };
+
+        // Construct the tarball URL from the package identifier
         let Some((user, name_and_ver)) = ident.split_once("/") else {
             let Some((name, ver)) = ident.split_once("@") else {
                 return Err(Error::NoAtInPackageIdentifier);
             };
 
             return Ok(format!(
-                "https://registry.npmjs.org/{}/-/{}-{}.tgz",
-                name, name, ver
+                "{}{}/-/{}-{}.tgz",
+                base_url, name, name, ver
             ));
         };
 
@@ -108,8 +159,8 @@ impl Fetcher {
         };
 
         Ok(format!(
-            "https://registry.npmjs.org/{}/{}/-/{}-{}.tgz",
-            user, name, name, ver
+            "{}{}/{}/-/{}-{}.tgz",
+            base_url, user, name, name, ver
         ))
     }
 }
