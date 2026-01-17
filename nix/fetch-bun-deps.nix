@@ -115,7 +115,7 @@ let
       # Merge credentials (npmrc takes precedence)
       credentials = bunfigCredentials // npmrcCredentials;
     in
-    # Wrapper for fetchurl that adds auth headers when available
+    # Wrapper for fetchurl that adds auth headers and preserves URL in passthru
     {
       url,
       ...
@@ -132,8 +132,10 @@ let
           }
         else
           { };
+      drv = fetchurl (args // authArgs);
     in
-    fetchurl (args // authArgs);
+    # Preserve URL in passthru for registry extraction in build-package.nix
+    drv // { passthru = (drv.passthru or { }) // { inherit url; }; };
 in
 {
   options.perSystem = mkPerSystemOption {

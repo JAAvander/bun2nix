@@ -77,9 +77,21 @@ in
         in
         name: pkg:
         let
-          # Look up registry host from scope configuration
+          # Try to get registry from scope configuration first
           scope = extractScope name;
-          registryHost = if scope != null then scopeRegistries.${scope} or null else null;
+          registryFromScope = if scope != null then scopeRegistries.${scope} or null else null;
+          # Fall back to extracting from package URL (via passthru)
+          pkgUrl = pkg.passthru.url or null;
+          registryFromUrl =
+            if pkgUrl != null then
+              let
+                host = extractHost pkgUrl;
+              in
+              if host != null && host != "registry.npmjs.org" then host else null
+            else
+              null;
+          # Prefer scope config, fall back to URL
+          registryHost = if registryFromScope != null then registryFromScope else registryFromUrl;
         in
         pkgs.stdenv.mkDerivation {
           name = "bun-pkg-${name}";
