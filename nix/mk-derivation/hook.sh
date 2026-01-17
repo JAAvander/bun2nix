@@ -36,7 +36,7 @@ EOF
   export BUN_INSTALL_CACHE_DIR
 
   # Use -RL to dereference symlinks so bun finds actual directories
-  cp -RL "$bunDeps"/share/bun-cache/. "$BUN_INSTALL_CACHE_DIR"
+  cp -r "$bunDeps"/share/bun-cache/. "$BUN_INSTALL_CACHE_DIR"
 
   if ! [ -v bunRoot ]; then
     bunRoot=$(pwd)
