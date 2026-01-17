@@ -39,8 +39,6 @@ in
         {
           bunNix,
           overrides ? { },
-          # Map of package names to patch file paths, e.g.:
-          # { "lodash@4.17.21" = ./patches/lodash@4.17.21.patch; }
           ...
         }@args:
         let

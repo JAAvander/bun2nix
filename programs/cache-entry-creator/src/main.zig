@@ -262,36 +262,55 @@ pub fn cachedGitFolderPrintBasename(
 const expectEqualSlices = std.testing.expectEqualSlices;
 const testing_allocator = std.testing.allocator;
 
-fn testNpmBaseName(input: []const u8, expected: []const u8) !void {
-    const res = try cachedNpmPackageFolderPrintBasename(testing_allocator, input);
-    defer testing_allocator.free(res);
-    try expectEqualSlices(u8, expected, res);
+fn testBaseNameFn(
+    tests: []const struct { []const u8, []const u8 },
+    func: anytype,
+) !void {
+    for (tests) |case| {
+        const input, const output = case;
+
+        const res = try func(testing_allocator, input);
+        defer testing_allocator.free(res);
+
+        try expectEqualSlices(u8, output, res);
+    }
 }
 
 test "cachedNpmPackageFolderPrintBasename function" {
-    try testNpmBaseName("react@1.2.3-beta.1+build.123", "react@1.2.3-c0734e9369ab610d+F48F05ED5AABC3A0@@@1");
-    try testNpmBaseName("tailwindcss@4.0.0-beta.9", "tailwindcss@4.0.0-73c5c46324e78b9b@@@1");
-    try testNpmBaseName("react@1.2.3+build.123", "react@1.2.3+F48F05ED5AABC3A0@@@1");
-    try testNpmBaseName("react@1.2.3", "react@1.2.3@@@1");
-    try testNpmBaseName("undici-types@6.20.0", "undici-types@6.20.0@@@1");
-    try testNpmBaseName("@types/react-dom@19.0.4", "@types/react-dom@19.0.4@@@1");
-    try testNpmBaseName("react-compiler-runtime@19.0.0-beta-e552027-20250112", "react-compiler-runtime@19.0.0-0f3fc645a5103715@@@1");
+    const tests = &[_]struct { []const u8, []const u8 }{
+        .{ "react@1.2.3-beta.1+build.123", "react@1.2.3-c0734e9369ab610d+F48F05ED5AABC3A0@@@1" },
+        .{ "tailwindcss@4.0.0-beta.9", "tailwindcss@4.0.0-73c5c46324e78b9b@@@1" },
+        .{ "react@1.2.3+build.123", "react@1.2.3+F48F05ED5AABC3A0@@@1" },
+        .{ "react@1.2.3", "react@1.2.3@@@1" },
+        .{ "undici-types@6.20.0", "undici-types@6.20.0@@@1" },
+        .{ "@types/react-dom@19.0.4", "@types/react-dom@19.0.4@@@1" },
+        .{ "react-compiler-runtime@19.0.0-beta-e552027-20250112", "react-compiler-runtime@19.0.0-0f3fc645a5103715@@@1" },
+        .{ "react-compiler-runtime@19.0.0-beta-e552027-20250112", "react-compiler-runtime@19.0.0-0f3fc645a5103715@@@1" },
+    };
+
+    try testBaseNameFn(tests, cachedNpmPackageFolderPrintBasename);
 }
 
 test "cachedTarballFolderPrintBasename function" {
-    const res = try cachedTarballFolderPrintBasename(testing_allocator, "tarball:https://registry.npmjs.org/zod/-/zod-3.21.4.tgz");
-    defer testing_allocator.free(res);
-    try expectEqualSlices(u8, "@T@3be02e19198e30ee@@@1", res);
+    const tests = &[_]struct { []const u8, []const u8 }{
+        .{ "tarball:https://registry.npmjs.org/zod/-/zod-3.21.4.tgz", "@T@3be02e19198e30ee@@@1" },
+    };
+
+    try testBaseNameFn(tests, cachedTarballFolderPrintBasename);
 }
 
 test "cachedGithubFolderPrintBasename function" {
-    const res = try cachedGithubFolderPrintBasename(testing_allocator, "github:colinhacks-zod-f9bbb50");
-    defer testing_allocator.free(res);
-    try expectEqualSlices(u8, "@GH@colinhacks-zod-f9bbb50@@@1", res);
+    const tests = &[_]struct { []const u8, []const u8 }{
+        .{ "github:colinhacks-zod-f9bbb50", "@GH@colinhacks-zod-f9bbb50@@@1" },
+    };
+
+    try testBaseNameFn(tests, cachedGithubFolderPrintBasename);
 }
 
 test "cachedGitFolderPrintBasename function" {
-    const res = try cachedGitFolderPrintBasename(testing_allocator, "git:ee100d81f12ae315a81c2a664979a6cc1bce99a2");
-    defer testing_allocator.free(res);
-    try expectEqualSlices(u8, "@G@ee100d81f12ae315a81c2a664979a6cc1bce99a2", res);
+    const tests = &[_]struct { []const u8, []const u8 }{
+        .{ "git:ee100d81f12ae315a81c2a664979a6cc1bce99a2", "@G@ee100d81f12ae315a81c2a664979a6cc1bce99a2" },
+    };
+
+    try testBaseNameFn(tests, cachedGitFolderPrintBasename);
 }
