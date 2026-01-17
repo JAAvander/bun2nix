@@ -75,10 +75,13 @@ pub fn main() !void {
         return clap.usageToFile(.stdout(), clap.Help, &params);
     };
 
+    // Note: We don't include patch_hash in the cache key because we pre-patch
+    // the package during the Nix build. Bun will find the already-patched
+    // package at the normal cache location.
     const cache_entry_location = try cachedFolderPrintBasename(
         allocator,
         linker.name,
-        linker.patch_hash,
+        null,
     );
     defer allocator.free(cache_entry_location);
 
