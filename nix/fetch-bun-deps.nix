@@ -18,22 +18,21 @@ let
   '';
 
   # Registry authentication utilities
+
+  # Extract URL from scope config (handles both string and object formats)
+  extractUrl = cfg: if builtins.isString cfg then cfg else cfg.url or null;
+
   # Parse bunfig.toml for registry credentials
   parseBunfigCredentials =
     bunfigPath:
     if bunfigPath != null && builtins.pathExists bunfigPath then
       let
         bunfig = builtins.fromTOML (builtins.readFile bunfigPath);
-        install = bunfig.install or { };
-        scopes = install.scopes or { };
-        # Extract token from scope config (handles both string and object formats)
-        extractToken = _: cfg: if builtins.isString cfg then null else cfg.token or null;
-        # Extract URL from scope config
-        extractUrl = _: cfg: if builtins.isString cfg then cfg else cfg.url or null;
-        # Build a map of registry URL -> token
-        scopeEntries = builtins.mapAttrs (name: cfg: {
-          url = extractUrl name cfg;
-          token = extractToken name cfg;
+        scopes = bunfig.install.scopes or { };
+        extractToken = cfg: if builtins.isString cfg then null else cfg.token or null;
+        scopeEntries = builtins.mapAttrs (_: cfg: {
+          url = extractUrl cfg;
+          token = extractToken cfg;
         }) scopes;
       in
       builtins.listToAttrs (
@@ -172,7 +171,7 @@ in
 
           withErrCtx = builtins.addErrorContext invalidBunNixErr (
             pkgs.callPackage bunNix {
-              inherit fetchurlWithAuth;
+              fetchurl = fetchurlWithAuth;
             }
           );
 
