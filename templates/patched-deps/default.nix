@@ -1,9 +1,15 @@
-{ bun2nix, lib, ... }:
+{
+  bun2nix,
+  lib,
+  ...
+}:
 let
   packageJsonPath = ./package.json;
   packageJsonContents = lib.importJSON packageJsonPath;
   # Convert relative path strings from package.json to Nix paths
-  patchedDependencies = lib.mapAttrs (_: path: ./. + "/${path}") (packageJsonContents.patchedDependencies or { });
+  patchedDependencies = lib.mapAttrs (_: path: ./. + "/${path}") (
+    packageJsonContents.patchedDependencies or { }
+  );
 in
 bun2nix.mkDerivation {
   packageJson = packageJsonPath;

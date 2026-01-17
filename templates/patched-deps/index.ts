@@ -4,7 +4,9 @@ import isNumber from "is-number";
 const patched = (isNumber as any).PATCHED;
 
 if (patched !== true) {
-  console.error("ERROR: Patch was not applied! Expected isNumber.PATCHED to be true");
+  console.error(
+    "ERROR: Patch was not applied! Expected isNumber.PATCHED to be true",
+  );
   process.exit(1);
 }
 
