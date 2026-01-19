@@ -32,6 +32,7 @@ in
 
               fetchBunDeps = fetchBunDeps.function;
               mkDerivation = mkDerivation.function;
+              inherit (fetchBunDeps) patchedDependenciesToOverrides;
             };
 
             meta = {

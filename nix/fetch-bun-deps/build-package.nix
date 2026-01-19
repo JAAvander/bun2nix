@@ -32,19 +32,12 @@ in
           patchShebangs ? true,
           autoPatchElf ? false,
           nativeBuildInputs ? [ ],
-          # Map of package names to patch file paths
-          patchedDependencies ? { },
           ...
         }@args:
         let
           bunWithNode = config.fetchBunDeps.bunWithNode args;
         in
         name: pkg:
-        let
-          # Look up if there's a patch for this package
-          patchFile = patchedDependencies.${name} or null;
-          hasPatch = patchFile != null;
-        in
         pkgs.stdenv.mkDerivation {
           name = "bun-pkg-${name}";
 
@@ -58,7 +51,6 @@ in
               stdenv.cc.cc.lib
             ]
           )
-          ++ lib.optionals hasPatch [ pkgs.patch ]
           ++ nativeBuildInputs;
 
           phases = [
@@ -80,10 +72,6 @@ in
           patchPhase = ''
             runHook prePatch
 
-            ${lib.optionalString hasPatch ''
-              echo "Applying patch for ${name}..."
-              patch -p1 -d "$out/share/bun-packages/${name}" < "${patchFile}"
-            ''}
             ${lib.optionalString patchShebangs ''patchShebangs "$out/share/bun-packages"''}
             ${lib.optionalString autoPatchElf ''runHook autoPatchelfPostFixup''}
 

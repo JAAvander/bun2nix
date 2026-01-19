@@ -10,6 +10,10 @@ let
   patchedDependencies = lib.mapAttrs (_: path: ./. + "/${path}") (
     packageJsonContents.patchedDependencies or { }
   );
+  # Convert patchedDependencies to overrides using the helper function
+  patchOverrides = bun2nix.patchedDependenciesToOverrides {
+    inherit patchedDependencies;
+  };
 in
 bun2nix.mkDerivation {
   packageJson = packageJsonPath;
@@ -18,7 +22,7 @@ bun2nix.mkDerivation {
 
   bunDeps = bun2nix.fetchBunDeps {
     bunNix = ./bun.nix;
-    inherit patchedDependencies;
+    overrides = patchOverrides;
   };
 
   # Verify the patch was applied by running the test script
