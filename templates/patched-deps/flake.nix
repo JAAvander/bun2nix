@@ -1,5 +1,5 @@
 {
-  description = "Bun2Nix tarball deps sample";
+  description = "Bun2Nix patched dependencies example";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -10,7 +10,6 @@
     bun2nix.inputs.systems.follows = "systems";
   };
 
-  # Use the cached version of bun2nix from the nix-community cli
   nixConfig = {
     extra-substituters = [
       "https://cache.nixos.org"
@@ -25,26 +24,18 @@
   outputs =
     inputs:
     let
-      # Read each system from the nix-systems input
       eachSystem = inputs.nixpkgs.lib.genAttrs (import inputs.systems);
 
-      # Access the package set for a given system
       pkgsFor = eachSystem (
         system:
         import inputs.nixpkgs {
           inherit system;
-          # Use the bun2nix overlay, which puts `bun2nix` in pkgs
-          # You can, of course, still access
-          # inputs.bun2nix.packages.${system}.default instead
-          # and use that to build your package instead
           overlays = [ inputs.bun2nix.overlays.default ];
         }
       );
     in
     {
       packages = eachSystem (system: {
-        # Produce a package for this template with bun2nix in
-        # the overlay
         default = pkgsFor.${system}.callPackage ./default.nix { };
       });
 
@@ -52,9 +43,6 @@
         default = pkgsFor.${system}.mkShell {
           packages = with pkgsFor.${system}; [
             bun
-
-            # Add the bun2nix binary to our devshell
-            # Optional now that we have a binary on npm
             bun2nix
           ];
 

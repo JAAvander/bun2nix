@@ -1,5 +1,5 @@
 {
-  description = "Bun2Nix phoenix sample";
+  description = "Bun2Nix private registry example";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -34,9 +34,6 @@
         import inputs.nixpkgs {
           inherit system;
           # Use the bun2nix overlay, which puts `bun2nix` in pkgs
-          # You can, of course, still access
-          # inputs.bun2nix.packages.${system}.default instead
-          # and use that to build your package instead
           overlays = [ inputs.bun2nix.overlays.default ];
         }
       );
@@ -48,36 +45,19 @@
         default = pkgsFor.${system}.callPackage ./default.nix { };
       });
 
-      devShells = eachSystem (
-        system:
-        let
-          pkgs = pkgsFor.${system};
-        in
-        {
-          default = pkgs.mkShellNoCC {
-            packages = with pkgs; [
-              elixir_1_19
-              watchman
-              bun
+      devShells = eachSystem (system: {
+        default = pkgsFor.${system}.mkShell {
+          packages = with pkgsFor.${system}; [
+            bun
 
-              # Add the bun2nix binary to our devshell
-              # Optional now that we have a binary on npm
-              bun2nix
-            ];
+            # Add the bun2nix binary to our devshell
+            bun2nix
+          ];
 
-            shellHook = ''
-              sh -c "cd assets && bun install --frozen-lockfile"
-
-              bun_path="$(mix do \
-                app.config --no-deps-check --no-compile + \
-                eval 'Bun.bin_path() |> IO.puts()')"
-
-              ln -sfv ${pkgs.bun}/bin/bun "$bun_path"
-
-              ln -sfv ${pkgs.tailwindcss_4}/bin/tailwindcss "assets/node_modules/.bin/tailwindcss"
-            '';
-          };
-        }
-      );
+          shellHook = ''
+            bun install --frozen-lockfile
+          '';
+        };
+      });
     };
 }
