@@ -31,6 +31,7 @@ pub fn convert_lockfile_to_nix_expression(contents: String, options: Options) ->
     };
 
     let mut packages = lockfile.packages();
+    packages.retain(|p| !matches!(p.fetcher, Fetcher::CopyToStore { .. }));
     packages.sort();
     packages.dedup_by(|a, b| a.name == b.name);
 

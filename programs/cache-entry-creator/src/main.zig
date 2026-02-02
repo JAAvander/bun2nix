@@ -111,14 +111,14 @@ pub const PkgLinker = struct {
     ///
     /// Creates a new cache entry at the output location passed.
     ///
-    /// Only the leaf nodes may be symlinks hence yhis creates one of two cases:
+    /// For modern Bun (v1.3+), individual packages in the cache are represented
+    /// by TWO entries:
     ///
-    /// typescript@4.0.0
-    /// - Create a symlink at $out/typescript@4.0.0
+    /// 1. A flattened entry: `name@version@@@1`
+    /// 2. A nested entry: `name/version@@@1` (which is a symlink to the flattened entry)
     ///
-    /// @types/bun
-    /// - Create parent directory $out/@types
-    /// - Create a symlink at $out/@types/bun
+    /// This function creates both, ensuring that the package content itself
+    /// is linked to the flattened entry first.
     pub fn create_cache_entry(
         linker: PkgLinker,
         allocator: mem.Allocator,
@@ -126,31 +126,72 @@ pub const PkgLinker = struct {
     ) !void {
         std.log.info("Creating entry for `{s}`...\n", .{linker.name});
 
-        const link_out_absolute = try std.fmt.allocPrint(
-            allocator,
-            "{s}/{s}",
-            .{ linker.out, cache_entry_location },
-        );
-        defer allocator.free(link_out_absolute);
+        const flattened_path = try std.fs.path.join(allocator, &[_][]const u8{ linker.out, cache_entry_location });
+        defer allocator.free(flattened_path);
 
-        std.log.debug("Link out path: `{s}`.\n", .{link_out_absolute});
+        // Ensure parent directory for the flattened entry exists
+        if (std.fs.path.dirname(flattened_path)) |dir| {
+            try std.fs.cwd().makePath(dir);
+        }
 
-        const link_parent_dir = try fs.path.resolve(
-            allocator,
-            &[_][]const u8{ link_out_absolute, ".." },
-        );
-        defer allocator.free(link_parent_dir);
+        // Link package content to the flattened path
+        try std.fs.cwd().symLink(linker.package, flattened_path, .{ .is_directory = true });
 
-        std.log.debug("Link parent dir: `{s}`.\n", .{link_parent_dir});
+        // Create the nested convenience symlink if applicable
+        try linker.create_nested_symlink(allocator, cache_entry_location);
+    }
 
-        try fs.cwd().makePath(link_parent_dir);
-        std.log.debug("Created parent directory.\n", .{});
+    /// # Create nested symlink
+    ///
+    /// Creates a nested symlink (e.g., `name/version@@@1`) pointing to the
+    /// flattened entry (`name@version@@@1`).
+    fn create_nested_symlink(
+        linker: PkgLinker,
+        allocator: mem.Allocator,
+        cache_entry_location: []const u8,
+    ) !void {
+        const suffix = "@@@1";
+        if (!mem.endsWith(u8, cache_entry_location, suffix)) return;
 
-        try fs.symLinkAbsolute(
-            linker.package,
-            link_out_absolute,
-            .{ .is_directory = true },
-        );
+        // Find the '@' that separates name and version, skipping the suffix
+        const search_end = cache_entry_location.len - suffix.len;
+        const version_at_index = mem.lastIndexOfScalar(u8, cache_entry_location[0..search_end], '@') orelse return;
+
+        // Construct the nested path by replacing the version '@' with '/'
+        var nested_location = try allocator.dupe(u8, cache_entry_location);
+        defer allocator.free(nested_location);
+        nested_location[version_at_index] = '/';
+
+        const nested_path = try std.fs.path.join(allocator, &[_][]const u8{ linker.out, nested_location });
+        defer allocator.free(nested_path);
+
+        // Ensure parent directory for the nested entry exists
+        if (std.fs.path.dirname(nested_path)) |dir| {
+            try std.fs.cwd().makePath(dir);
+        }
+
+        // Calculate the relative path from the nested entry back to the flattened entry.
+        // Since we replaced one '@' with '/', the flattened entry is always
+        // exactly one level up relative to the version directory.
+        // e.g. name/version@@@1 -> ../name@version@@@1
+
+        // Count nesting depth of the package name itself (e.g. @scope/name)
+        var depth: usize = 1;
+        for (nested_location) |c| {
+            if (c == '/') depth += 1;
+        }
+
+        var relative_target = try allocator.alloc(u8, (depth - 1) * 3 + cache_entry_location.len);
+        defer allocator.free(relative_target);
+
+        var pos: usize = 0;
+        for (0..depth - 1) |_| {
+            relative_target[pos..][0..3].* = "../".*;
+            pos += 3;
+        }
+        mem.copyForwards(u8, relative_target[pos..], cache_entry_location);
+
+        try std.fs.cwd().symLink(relative_target, nested_path, .{ .is_directory = true });
     }
 };
 

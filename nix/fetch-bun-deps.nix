@@ -179,6 +179,7 @@ in
           withErrCtx = builtins.addErrorContext invalidBunNixErr (
             pkgs.callPackage bunNix {
               fetchurl = fetchurlWithAuth;
+              copyPathToStore = lib.id;
             }
           );
 

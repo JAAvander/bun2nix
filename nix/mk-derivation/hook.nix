@@ -35,10 +35,12 @@ in
               [
                 "--linker=isolated"
                 "--backend=symlink"
+                "--frozen-lockfile"
               ]
             else
               [
                 "--linker=isolated"
+                "--frozen-lockfile"
               ];
         };
       } ./hook.sh;
