@@ -13,7 +13,7 @@ pub use error::{Error, Result};
 pub use lockfile::Lockfile;
 use nix_expression::NixExpression;
 pub use options::Options;
-pub use package::Package;
+pub use package::{Fetcher, Package};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
